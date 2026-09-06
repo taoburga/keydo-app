@@ -1,0 +1,46 @@
+{
+  "name": "keydo-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Keyboard-first frontend for Apple Reminders. Mac + iPhone via iCloud.",
+  "author": "Tao Burga",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/taoburga/keydo-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/taoburga/keydo-app/issues"
+  },
+  "homepage": "https://github.com/taoburga/keydo-app#readme",
+  "keywords": [
+    "apple-reminders",
+    "eventkit",
+    "macos",
+    "todo",
+    "tasks",
+    "keyboard-first",
+    "mcp"
+  ],
+  "type": "module",
+  "main": "server.js",
+  "bin": {
+    "todo-app-mcp": "./mcp-server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "mcp": "node mcp-server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "chrono-node": "^2.7.0",
+    "ipaddr.js": "^2.5.0"
+  },
+  "overrides": {
+    "@hono/node-server": "^2.0.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

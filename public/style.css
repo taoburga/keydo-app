@@ -1,0 +1,2338 @@
+/* "Ink & vermillion" theme — warm ink blacks, paper-cream text, vermillion
+   accent, jade for completion. Light mode is warm paper, not stark white.
+   Theme switching: dark is the default; html[data-theme] is set by app.js
+   from the persisted preference ('system' leaves it unset). */
+:root {
+  --bg:        #181614;   /* warm ink */
+  --bg-soft:   #211e1b;
+  --bg-card:   #221f1c;
+  --bg-hover:  #262220;
+  --bg-sel:    #2c2520;   /* warm selection, vermillion stripe carries the accent */
+  --fg:        #ece5d8;   /* paper cream */
+  --fg-dim:    #a89e8e;
+  --fg-faint:  #776e60;
+  --accent:    #d97757;   /* terracotta — warm clay, the app's one accent */
+  --accent-2:  #e6987b;
+  --green:     #8fb996;   /* jade — completion */
+  --red:       #eb5a3e;   /* vermillion — P1 / overdue ONLY (never decoration) */
+  --orange:    #e08a36;   /* P2 / medium */
+  --yellow:    #8a8275;   /* P3 / low — neutral so low priority recedes (option C) */
+  /* Hairlines are ink-at-low-alpha, not fixed hexes: they self-adapt to both
+     themes and to whatever surface they sit on (defined once, resolves against
+     each theme's --fg at use time — do NOT re-declare in the light blocks). */
+  --border:    color-mix(in srgb, var(--fg) 11%, transparent);
+  --border-strong: color-mix(in srgb, var(--fg) 20%, transparent);
+  --mono: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --serif: ui-serif, "New York", Georgia, serif;
+}
+
+/* Warm-paper light tokens. Two blocks on purpose (no preprocessor):
+   one for the explicit toggle, one for system preference. Keep in sync. */
+:root[data-theme="light"] {
+  --bg:       #f4efe5;
+  --bg-soft:  #ece5d7;
+  --bg-card:  #faf6ed;
+  --bg-hover: #eae2d2;
+  --bg-sel:   #f0e0cf;
+  --fg:       #2c2722;
+  --fg-dim:   #6f6557;
+  --fg-faint: #9c9180;
+  --accent:   #b9553a;
+  --accent-2: #9c4530;
+  --green:    #4d7c5c;
+  --red:      #c0432a;
+  --orange:   #b0641a;
+  --yellow:   #6f6a5c;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:       #f4efe5;
+    --bg-soft:  #ece5d7;
+    --bg-card:  #faf6ed;
+    --bg-hover: #eae2d2;
+    --bg-sel:   #f0e0cf;
+    --fg:       #2c2722;
+    --fg-dim:   #6f6557;
+    --fg-faint: #9c9180;
+    --accent:   #b9553a;
+    --accent-2: #9c4530;
+    --green:    #4d7c5c;
+    --red:      #c0432a;
+    --orange:   #b0641a;
+    --yellow:   #6f6a5c;
+  }
+}
+
+/* Quiet overlay scrollbars — a warm ink thumb, no track, invisible until it
+   matters. WKWebView is WebKit, so the -webkit form is the real surface. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--fg) 14%, transparent);
+  border-radius: 5px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--fg) 26%, transparent); }
+
+/* Keyboard focus ring — accent at half strength, keyboard-only, low
+   specificity so any deliberate per-control ring still wins. */
+:where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#app {
+  display: grid;
+  grid-template-columns: 256px 1fr;
+  height: 100vh;
+}
+
+/* ============================== sidebar ============================== */
+#sidebar {
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: 6px;
+  /* One sidebar row (8px padding × 2 + ~20px line). The section caps below are
+     expressed in rows so "5 at a time" stays true if the row metrics change. */
+  --sb-row: 36px;
+}
+.sb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 6px;
+}
+.sb-title {
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  font-weight: 500;
+}
+.sb-head button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sb-head button:hover { color: var(--fg); background: var(--bg-hover); border-color: var(--fg-faint); }
+
+/* The three sidebar sections share one vertical budget. Each is sized by its
+   content, caps at 5 rows (scrolling past that), and shrinks in proportion to
+   its own height when the window gets short.
+   Previously #lists was `flex: 1` (basis 0%) while Smart Lists and Tags each
+   held `max-height: 30vh`: Lists absorbed 100% of the shrink and collapsed to
+   0px on a short window while the other two kept full height — core navigation
+   simply vanished. `flex: 0 1 auto` gives every
+   section a real content basis, so shrink is distributed, not dumped on one. */
+#lists, #smartLists, #tags {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0 8px;
+  overflow-y: auto;
+  flex: 0 1 auto;
+  max-height: calc(5 * var(--sb-row));
+  min-height: var(--sb-row);     /* never squeezed out of existence */
+}
+#tags li .tag-hash { color: var(--fg-faint); margin-right: 2px; }
+
+/* habits — weekly-dot strip (weekly targets, not tasks). Two lines per habit:
+   name / next / count on top, a full-width row of dots beneath. Clear air
+   below the strip so it never crowds the buddy. */
+#habits { list-style: none; margin: 0 0 22px; padding: 0; }
+.habit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0 8px 4px;
+  padding: 7px 8px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--fg-dim);
+  user-select: none;
+}
+/* weekly target reached: the whole row glows gentle jade (keep ticking —
+   extra days still count and the glow stays) */
+.habit-row.hit {
+  background: color-mix(in srgb, var(--green) 9%, transparent);
+  color: var(--fg);
+}
+.habit-top { display: flex; align-items: baseline; gap: 8px; }
+.habit-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.habit-name:hover { color: var(--fg); }
+.habit-dots { display: flex; gap: 7px; }
+.habit-dot {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: transparent;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.habit-dot:hover { border-color: var(--green); }
+.habit-dot.on { background: var(--green); border-color: var(--green); }
+.habit-dot.today { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.habit-dot:disabled { cursor: default; opacity: 0.35; }
+.habit-dot:disabled:hover { border-color: var(--border-strong); }
+.habit-count {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-faint);
+  min-width: 24px;
+  text-align: right;
+}
+.habit-count.hit { color: var(--green); }
+/* rotation habits: the "what's next" hint (gym: → push) */
+.habit-next {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-faint);
+  white-space: nowrap;
+}
+.habit-row.hit .habit-next { color: color-mix(in srgb, var(--green) 70%, var(--fg-dim)); }
+/* kind chooser — tiny menu by the clicked dot */
+#habitKindMenu {
+  /* Above .overlay (100): the kind picker also opens from the history modal. */
+  position: fixed;
+  z-index: 500;
+  min-width: 130px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.habit-kind-row {
+  text-align: left;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+.habit-kind-row:hover { background: var(--bg-hover); }
+.habit-kind-row.suggested { color: var(--green); }
+.habit-kind-row.plain { color: var(--fg-faint); }
+/* habit history modal — past weeks at a glance */
+.hh-card { min-width: 420px; max-width: 480px; max-height: 78vh; overflow-y: auto; }
+.hh-habit { margin: 0 0 18px; }
+.hh-habit h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--fg); }
+.hh-target { font-weight: 400; font-size: 11px; color: var(--fg-faint); font-family: var(--mono); }
+.hh-week {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-bottom: 2px;
+}
+.hh-week.hit { background: color-mix(in srgb, var(--green) 8%, transparent); }
+.hh-week-label {
+  flex: none;
+  width: 92px;
+  font-size: 11px;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+.hh-dots { display: flex; gap: 6px; flex: 1; }
+.hh-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: transparent;
+  /* Past/today dots are <button>s (history is editable); reset chrome. */
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+button.hh-dot:hover { border-color: var(--green); }
+.hh-dot.on { background: var(--green); border-color: var(--green); }
+.hh-dot.kind { color: var(--bg); font-weight: 700; }
+.hh-dot.future { opacity: 0.3; cursor: default; }
+.hh-count {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-faint);
+}
+.hh-count.hit { color: var(--green); }
+.hh-empty { font-size: 13px; color: var(--fg-dim); }
+/* zen mode is a visibility preset — habit dots are decorative chrome too */
+body.zen #habitsHead, body.zen #habits { display: none; }
+
+#lists li, #smartLists li, #tags li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;        /* Google-style pill */
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  color: var(--fg);
+  margin-bottom: 2px;
+}
+#lists li .num, #smartLists li .icon, #tags li .icon {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+  min-width: 14px;
+  text-align: center;
+}
+#lists li .lname, #smartLists li .lname, #tags li .lname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#lists li .count, #smartLists li .count, #tags li .count {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-faint);
+}
+#lists li:hover, #smartLists li:hover, #tags li:hover { background: var(--bg-hover); }
+#lists li.active, #smartLists li.active, #tags li.active {
+  background: var(--bg-sel);
+  color: var(--fg);
+}
+#lists li.active .num,
+#lists li.active .count,
+#smartLists li.active .icon,
+#smartLists li.active .count,
+#tags li.active .icon,
+#tags li.active .count { color: var(--accent); }
+
+/* Pin toggle checkbox in sidebar items */
+.pin-toggle {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--fg-faint);
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.pin-toggle:hover { border-color: var(--fg-dim); }
+.pin-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.pin-toggle.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+.pin-toggle.on::after { content: "✓"; }
+
+/* Sidebar row delete/hide (×): hover-only, replaces the count so the row
+   doesn't jump. Deletion always confirms via the confirm modal first. */
+#lists li .row-delete, #smartLists li .row-delete {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--fg-faint);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+#lists li:hover .row-delete, #smartLists li:hover .row-delete { display: inline-block; }
+#lists li:hover .count, #smartLists li:hover .count { display: none; }
+#lists li .row-delete:hover, #smartLists li .row-delete:hover { color: var(--red); background: var(--bg-hover); }
+
+/* ============================== guided tour ============================== */
+/* The spotlight is a positioned box whose giant box-shadow dims everything
+   else — one element, no SVG masks. The overlay eats all pointer events so
+   app state can't shift mid-tour; only the card's buttons are interactive. */
+#tutorialOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: none;
+}
+#tutorialOverlay.on { display: block; }
+#tutorialOverlay .tut-spot {
+  position: fixed;
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px color-mix(in oklab, var(--bg) 72%, transparent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease;
+  pointer-events: none;
+}
+#tutorialOverlay .tut-card {
+  position: fixed;
+  width: 340px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+#tutorialOverlay .tut-card h2 {
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+}
+#tutorialOverlay .tut-card p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-dim);
+}
+#tutorialOverlay .tut-points {
+  margin: 0 0 10px;
+  padding-left: 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-dim);
+}
+#tutorialOverlay .tut-points li { margin: 0 0 2px; }
+#tutorialOverlay .tut-dots {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+#tutorialOverlay .tut-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+#tutorialOverlay .tut-dot.on { background: var(--accent); }
+#tutorialOverlay .tut-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#tutorialOverlay .tut-actions button {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--fg);
+  cursor: pointer;
+}
+#tutorialOverlay .tut-actions button:hover { background: var(--bg-hover); }
+#tutorialOverlay .tut-actions .tut-next {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+#tutorialOverlay .tut-actions .tut-skip {
+  margin-right: auto;
+  border: none;
+  color: var(--fg-faint);
+  padding-left: 0;
+}
+#tutorialOverlay .tut-actions .tut-skip:hover { color: var(--fg); background: transparent; }
+
+/* ============================== calendar pane ============================== */
+/* Right-side day agenda (read-only EventKit events). --cal-color carries the
+   source calendar's own color per row; everything else uses theme tokens. */
+#calendarPane {
+  position: relative;   /* hosts the .cal-resize grip on its left edge */
+  flex: 0 0 264px;
+  min-width: 200px;
+  border-left: 1px solid var(--border);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Drag the left edge to resize the pane (width persists). */
+.cal-resize {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 3;
+}
+.cal-resize:hover, .cal-resize.dragging {
+  background: color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+/* Hover card: full event details for truncated blocks/chips. */
+#calHover {
+  position: fixed;
+  z-index: 400;
+  max-width: 280px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+#calHover.hidden { display: none; }
+#calHover .ch-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-bottom: 2px;
+  overflow-wrap: anywhere;
+}
+#calHover .ch-line {
+  font-size: 11.5px;
+  color: var(--fg-dim);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+#calendarPane.hidden { display: none; }
+#calendarPane .cal-header {
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--border);
+}
+#calendarPane .cal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#calendarPane h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+#calendarPane h1 .cal-sub {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--fg-faint);
+}
+#calendarPane #calClose {
+  background: transparent;
+  border: none;
+  color: var(--fg-faint);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+#calendarPane #calClose:hover { color: var(--fg); background: var(--bg-hover); }
+#calendarPane .cal-nav {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+#calendarPane .cal-nav button {
+  font: inherit;
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  border-radius: 6px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+#calendarPane .cal-nav button:hover { color: var(--fg); background: var(--bg-hover); }
+#calAllDay {
+  padding: 6px 10px 0;
+}
+#calAllDay:empty { display: none; }
+#calBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 6px 16px 0;
+}
+.cal-empty {
+  color: var(--fg-faint);
+  font-size: 13px;
+  padding: 12px 16px;
+  margin: 0;
+}
+.cal-allday {
+  --cal-color: var(--accent);
+  font-size: 12px;
+  padding: 4px 8px;
+  margin: 0 0 4px;
+  border-radius: 6px;
+  border-left: 3px solid var(--cal-color);
+  background: color-mix(in oklab, var(--cal-color) 10%, transparent);
+}
+.cal-allday .cal-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+/* Hour-grid timeline: absolute-positioned day canvas. Hour rules span the
+   full width; the label sits in the left gutter just above its line. */
+.cal-grid {
+  position: relative;
+  margin-top: 8px;
+}
+.cal-hour {
+  position: absolute;
+  left: 40px;
+  right: 0;
+  border-top: 1px solid var(--border);
+  pointer-events: none;
+}
+.cal-hour-label {
+  position: absolute;
+  left: -36px;
+  top: -7px;
+  width: 30px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-faint);
+  background: var(--bg-card);
+  line-height: 1.3;
+}
+.cal-block {
+  --cal-color: var(--accent);
+  position: absolute;
+  overflow: hidden;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border-left: 3px solid var(--cal-color);
+  background: color-mix(in oklab, var(--cal-color) 14%, var(--bg-card));
+}
+.cal-block .cal-name {
+  display: block;
+  font-size: 12px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-block .cal-time {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+}
+.cal-block.past { opacity: 0.45; }
+.cal-now {
+  position: absolute;
+  left: 36px;
+  right: 0;
+  border-top: 2px solid var(--red);
+  pointer-events: none;
+  z-index: 2;
+}
+.cal-now::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+/* Confirm modal (destructive actions) */
+.confirm-card #confirmBody { color: var(--fg-dim); font-size: 13px; line-height: 1.5; }
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.confirm-actions button {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--fg);
+  cursor: pointer;
+}
+.confirm-actions button:hover { background: var(--bg-hover); }
+.confirm-actions button.danger {
+  border-color: color-mix(in oklab, var(--red) 50%, transparent);
+  color: var(--red);
+}
+.confirm-actions button.danger:hover {
+  background: color-mix(in oklab, var(--red) 12%, transparent);
+}
+
+/* User-defined sections within a list (collapsible) */
+#tasks li.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 6px;
+  font-size: 13px;
+  color: var(--fg-dim);
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+}
+#tasks li.section-header:first-child { border-top: none; margin-top: 0; }
+#tasks li.section-header:hover { background: var(--bg-hover); }
+#tasks li.section-header.drop-target {
+  background: var(--bg-sel);
+  border-top: 2px solid var(--accent);
+}
+#tasks li.section-header .sh-arrow { color: var(--fg-faint); width: 12px; }
+#tasks li.section-header .sh-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+  margin-left: 6px;
+}
+
+/* Smart-view group headers (By Priority / By List) */
+#tasks li.group-header {
+  display: block;
+  padding: 14px 18px 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  font-weight: 500;
+  cursor: default;
+  user-select: none;
+  border: none;
+}
+#tasks li.group-header:first-child { padding-top: 4px; }
+
+/* Completed mega-header — visually separates open from done in list views. */
+#tasks li.completed-mega-header {
+  display: block;
+  padding: 22px 18px 6px;
+  margin-top: 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  font-weight: 500;
+  border-top: 1px solid var(--border);
+  cursor: default;
+  user-select: none;
+}
+#tasks li.completed-mega-header .cmh-label { opacity: 0.85; }
+#tasks li.task-detail,
+.pinned-tasks li.task-detail {
+  list-style: none;
+  display: block;
+  padding: 6px 18px 10px 42px;
+  margin: 0;
+  border: none;
+  background: transparent;
+}
+#tasks li.task-detail[data-depth="1"] { padding-left: 70px; }
+#tasks li.task-detail[data-depth="2"] { padding-left: 98px; }
+#tasks li.task-detail[data-depth="3"] { padding-left: 126px; }
+#tasks li.task-detail[data-depth="4"] { padding-left: 154px; }
+#tasks li.task-detail .td-inner,
+.pinned-tasks li.task-detail .td-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+.td-label {
+  color: var(--fg-faint);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 2px;
+}
+.td-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  font-family: inherit;
+  line-height: 1.2;
+}
+.td-chip:hover { background: var(--bg-hover); color: var(--fg); }
+.td-chip.td-clear {
+  border-color: transparent;
+  background: transparent;
+  font-size: 14px;
+  padding: 0 6px;
+  color: var(--fg-faint);
+}
+.td-chip.td-clear:hover { color: var(--red); }
+.td-chip.td-pri.high.active   { background: color-mix(in oklab, var(--red) 14%, transparent);    color: var(--red);    border-color: color-mix(in oklab, var(--red) 45%, transparent); }
+.td-chip.td-pri.medium.active { background: color-mix(in oklab, var(--orange) 14%, transparent); color: var(--orange); border-color: color-mix(in oklab, var(--orange) 45%, transparent); }
+.td-chip.td-pri.low.active    { background: color-mix(in oklab, var(--yellow) 14%, transparent); color: var(--yellow); border-color: color-mix(in oklab, var(--yellow) 45%, transparent); }
+.td-chip.td-pri.none.active   { background: color-mix(in oklab, var(--fg-faint) 14%, transparent); color: var(--fg-dim); border-color: color-mix(in oklab, var(--fg-faint) 45%, transparent); }
+.td-date {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  width: 180px;
+}
+.td-date:focus { outline: none; border-color: var(--accent); }
+.td-list {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+}
+.td-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
+}
+.td-spacer { flex: 1; }
+.td-more { font-size: 14px; padding: 0 10px; }
+
+#tasks li.section-header.completed-bucket {
+  font-weight: 400;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--fg-dim);
+  padding-left: 26px;
+}
+
+#tasks li.group-header .gh-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-left: 8px;
+  color: var(--fg-faint);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.sb-foot {
+  /* Carries the leftover space now that no section grows (see #lists above),
+     pinning the foot — and the buddy just above it — to the bottom. The foot
+     is the right carrier because zen mode display:none's #habits and #buddy
+     but never this. */
+  margin-top: auto;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-faint);
+  min-height: 34px;
+}
+/* Reserve a constant line for the progress text so showing/hiding
+   'loading…' / 'syncing…' never changes .sb-foot's height and pushes the
+   buddy up (#2). Pairs with the 250ms show-delay in app.js. */
+#status {
+  display: block;
+  min-height: 14px;
+  line-height: 14px;
+}
+
+/* ============================== main pane ============================== */
+#main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  padding: 18px 22px 0;
+  gap: 14px;
+}
+
+#topbar {
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  align-items: start;
+}
+#quickAddWrap { position: relative; }
+#quickAddPreview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 16px 0;
+  font-size: 11px;
+  color: var(--fg-faint);
+}
+#quickAddPreview .tok {
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border);
+}
+#quickAddPreview .tok-pri.high   { color: var(--red);    border-color: color-mix(in oklab, var(--red) 40%, transparent); }
+#quickAddPreview .tok-pri.medium { color: var(--orange); border-color: color-mix(in oklab, var(--orange) 40%, transparent); }
+#quickAddPreview .tok-pri.low    { color: var(--yellow); border-color: color-mix(in oklab, var(--yellow) 40%, transparent); }
+#quickAddPreview .tok-due        { color: var(--accent-2); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+/* tap-to-revert: the date chip is clickable — demotes the phrase back into the title */
+#quickAddPreview .tok-due.revert { cursor: pointer; }
+#quickAddPreview .tok-due.revert:hover { border-color: var(--accent); }
+#quickAddPreview .tok-due.off    { cursor: pointer; color: var(--fg-faint); border-style: dashed; border-color: var(--border); }
+#quickAddPreview .tok-due.off:hover { border-color: var(--fg-dim); }
+#quickAddPreview .tok-tag        { color: var(--green);  border-color: color-mix(in oklab, var(--green) 40%, transparent); }
+/* quick-add autocomplete (#tag / ls:list) */
+#qaComplete {
+  position: absolute;
+  top: 100%;
+  left: 8px;
+  z-index: 40;
+  min-width: 180px;
+  max-width: 320px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+  font-size: 12px;
+}
+#qaComplete.hidden { display: none; }
+.qa-comp-row {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  padding: 5px 9px;
+  border-radius: 5px;
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qa-comp-row.sel, .qa-comp-row:hover { background: var(--bg-hover); }
+.qa-comp-mark { color: var(--fg-faint); font-family: var(--mono); flex: none; }
+#searchBar {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg);
+  padding: 11px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: var(--sans);
+  outline: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+#searchBar:hover { background: var(--bg-soft); }
+#searchBar:focus { background: var(--bg-soft); border-color: var(--border); }
+#searchBar::placeholder { color: var(--fg-faint); }
+#quickAdd {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg);
+  padding: 11px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: var(--sans);
+  outline: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+#quickAdd:hover { background: var(--bg-soft); }
+#quickAdd:focus {
+  background: var(--bg-soft);
+  border-color: var(--border);
+}
+#quickAdd::placeholder { color: var(--fg-faint); }
+
+/* Multi-pane area: primary task pane + optional pinned panes side by side.
+   overflow-x scrolls rather than clips when panes outgrow a narrow window
+   (sidebar 256px + N panes × 240px min exceeds the 720px window minimum). */
+#taskPaneArea {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  overflow: hidden;
+  overflow-x: auto;
+  min-height: 0;
+}
+#pinnedPanes {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+#pinnedPanes:empty { flex: 0; }
+.pane {
+  flex: 1 1 0;
+  min-width: 240px;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border-radius: 10px;
+  /* No top padding: the sticky header owns the top spacing instead. In WebKit a
+     sticky child pins to the content box (below padding), so a top padding here
+     would leave an open strip that scrolling rows show through. */
+  padding: 0 6px 18px;
+  border: 1px solid var(--border);
+}
+.pane.primary {
+  flex: 1 1 0;   /* equal share with pinned panes; drag the splitter to adjust */
+}
+.pane-splitter {
+  width: 5px;
+  background: transparent;
+  cursor: col-resize;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+.pane-splitter:hover, .pane-splitter.dragging { background: var(--accent); }
+.pane.drop-target-list {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background: color-mix(in oklab, var(--accent) 8%, var(--bg-card));
+}
+#sidebar #lists li.drop-target-list {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  border-radius: 4px;
+}
+.pane .pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Match #listHeader: pin the pinned-pane title while its tasks scroll. */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0 0 6px;
+  padding: 12px 16px 8px;
+  background: var(--bg-card);
+}
+.pane .pane-header h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.pane .pane-close {
+  background: transparent;
+  border: none;
+  color: var(--fg-faint);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.pane .pane-close:hover { color: var(--fg); background: var(--bg-hover); }
+/* Pane reordering: the header is the drag handle (drag a pane onto another to
+   swap their positions). The close button keeps its own pointer cursor. */
+.pane .pane-header { cursor: grab; }
+.pane .pane-header:active { cursor: grabbing; }
+/* Drag handles are never text-selection targets — a pane drag that wanders
+   over a header must not highlight the title (rename uses an input, which
+   overrides user-select). */
+.pane .pane-header, #listHeader {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.pane.pane-dragging {
+  opacity: 0.45;
+  transform: scale(0.985);
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.pane.pane-drop-before { box-shadow: inset 3px 0 0 var(--accent); }
+.pane.pane-drop-after  { box-shadow: inset -3px 0 0 var(--accent); }
+/* The main pane's title doubles as its drag handle (drag to reorder/demote) —
+   but only when there's somewhere to reorder it to. With no pinned side panes
+   the main pane is alone, so it isn't draggable and shouldn't look it. */
+#taskPaneArea.has-panes #listHeader { cursor: grab; }
+#taskPaneArea.has-panes #listHeader:active { cursor: grabbing; }
+#listHeader {
+  /* Stick to the top of the (scrolling) pane so the list title stays visible.
+     Side inset moves from margin to padding so the opaque background spans the
+     full pane-content width and scrolling task rows pass fully underneath. */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0 0 4px;
+  padding: 12px 16px 8px;
+  background: var(--bg-card);
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.015em;   /* display type tightens; small labels loosen */
+  color: var(--fg);
+}
+/* Transient sort-order flash beside the list title (#6). Appended into the
+   header by _flashSortMode; fades out after a couple of seconds. */
+#sortFlash {
+  margin-left: 10px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  vertical-align: 2px;
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+#sortFlash.hide { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { #sortFlash { transition: none; } }
+
+/* ============================== task list ============================== */
+#tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#tasks li.task,
+.pinned-tasks li.task {
+  display: grid;
+  /* Title gets a hard 7rem minimum so a long URL/due chip can't starve it down
+     to one-char-per-line wrapping in a narrow window or pinned pane; it takes
+     all the extra room when meta is light (the common case). Meta sizes to its
+     chips (auto) but can shrink to 0, ellipsizing its URL chip, when the row is
+     tight. Names always wrap at word boundaries rather than clipping. */
+  grid-template-columns: 24px minmax(7rem, 1fr) minmax(0, auto);
+  align-items: start;
+  column-gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  user-select: none;
+  border-top: 1.5px solid transparent;     /* used for drop indicator */
+  border-bottom: 1.5px solid transparent;
+  position: relative;
+  border-radius: 7px;
+  transition: background 0.12s ease;
+}
+#tasks li.task .checkbox, .pinned-tasks li.task .checkbox { margin-top: 2px; }
+#tasks li.task:hover { background: var(--bg-hover); }
+#tasks li.task.selected { background: var(--bg-sel); }
+/* Focus-now indicator: first active task in the list gets a subtle accent stripe. */
+#tasks li.task.top-focus::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.85;
+}
+#tasks li.task.completed .name {
+  color: var(--fg-faint);
+  text-decoration: line-through;
+}
+#tasks li.task.optimistic { opacity: 0.55; }
+
+/* Drag-and-drop affordances */
+#tasks li.task.dragging { opacity: 0.4; }
+#tasks li.task.drop-above   { border-top-color:    var(--accent); }
+#tasks li.task.drop-below   { border-bottom-color: var(--accent); }
+
+/* Subtask indentation */
+#tasks li.task[data-depth="0"] { padding-left: 16px; }
+#tasks li.task[data-depth="1"] { padding-left: 40px; }
+#tasks li.task[data-depth="2"] { padding-left: 64px; }
+#tasks li.task[data-depth="3"] { padding-left: 88px; }
+#tasks li.task[data-depth="4"] { padding-left: 112px; }
+#tasks li.task[data-depth="5"] { padding-left: 136px; }
+#tasks li.task[data-depth]:not([data-depth="0"]) .name::before {
+  content: "";
+  display: inline-block;
+  width: 0;
+}
+/* Same subtask indentation inside pinned side panes (base depth-0 pad is 16px,
+   set on .pinned-tasks li.task; each level adds 24px to match the main pane). */
+.pinned-tasks li.task[data-depth="1"] { padding-left: 40px; }
+.pinned-tasks li.task[data-depth="2"] { padding-left: 64px; }
+.pinned-tasks li.task[data-depth="3"] { padding-left: 88px; }
+.pinned-tasks li.task[data-depth="4"] { padding-left: 112px; }
+.pinned-tasks li.task[data-depth="5"] { padding-left: 136px; }
+#tasks li.task.parent-task .name {
+  font-weight: 600;
+}
+.parent-toggle {
+  background: transparent;
+  border: none;
+  color: var(--fg-faint);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--mono);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 6px;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+#tasks li.task:hover .parent-toggle { opacity: 1; }
+.parent-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+#tasks li.task.subtree-collapsed .parent-toggle {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid color-mix(in oklab, var(--fg-faint) 60%, var(--bg));   /* no-priority ring recedes (option C) */
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--bg);
+  flex-shrink: 0;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.checkbox:hover { border-color: var(--accent); }
+/* Priority-tinted checkbox borders */
+#tasks li.task[data-pri="high"]   .checkbox,
+.pinned-tasks li.task[data-pri="high"]   .checkbox { border-color: var(--red); }
+#tasks li.task[data-pri="medium"] .checkbox,
+.pinned-tasks li.task[data-pri="medium"] .checkbox { border-color: var(--orange); }
+#tasks li.task[data-pri="low"]    .checkbox,
+.pinned-tasks li.task[data-pri="low"]    .checkbox { border-color: var(--yellow); }
+
+/* Done is always jade — one calm signal, regardless of former priority. */
+.task.completed .checkbox,
+#tasks li.task[data-pri].completed .checkbox,
+.pinned-tasks li.task[data-pri].completed .checkbox {
+  background: var(--green);
+  border-color: var(--green);
+  transform: scale(1.05);
+}
+.task.completed .checkbox::after { content: "✓"; color: var(--bg); }
+
+/* Completion micro-interaction: the checkbox pops, a strike-through sweeps
+   across the title, then the row fades (rows about to be removed get
+   .completing). */
+#tasks li.task.completing,
+.pinned-tasks li.task.completing {
+  /* Hold the struck-through row on screen, then fade it out. Total duration is
+     kept in sync with COMPLETION_LINGER_MS in app.js. */
+  animation: complete-linger 1.5s ease forwards;
+}
+#tasks li.task.completing .checkbox,
+.pinned-tasks li.task.completing .checkbox {
+  background: var(--green);
+  border-color: var(--green);
+  animation: checkpop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#tasks li.task.completing .checkbox::after,
+.pinned-tasks li.task.completing .checkbox::after { content: "✓"; color: var(--bg); }
+@keyframes checkpop {
+  0%   { transform: scale(0.7); }
+  60%  { transform: scale(1.3); }
+  100% { transform: scale(1.05); }
+}
+#tasks li.task.completing .name,
+.pinned-tasks li.task.completing .name { position: relative; color: var(--fg-faint); transition: color 0.2s; }
+#tasks li.task.completing .name::after,
+.pinned-tasks li.task.completing .name::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 1.5px;
+  background: var(--fg-dim);
+  animation: strike 0.26s ease-out forwards;
+}
+@keyframes strike { from { width: 0; } to { width: 100%; } }
+/* Linger: dim quickly, hold struck-through, then fade out before removal. */
+@keyframes complete-linger {
+  0%   { opacity: 1; }
+  33%  { opacity: 0.4; }
+  80%  { opacity: 0.4; }
+  100% { opacity: 0; }
+}
+
+/* The middle grid track (name + subtitle). Without min-width:0 a grid item
+   refuses to shrink below its content's min-content width, so a long name
+   stays on one line and gets clipped by the pane instead of wrapping when the
+   window narrows. min-width:0 lets the 1fr track collapse and the name wrap. */
+.title-col { min-width: 0; }
+.name {
+  font-size: 14px;
+  color: var(--fg);
+  line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.name input.inline-edit {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+  color: var(--fg);
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+/* expanded editor (Enter on a selected task) */
+#tasks li.task.editing {
+  background: var(--bg-soft);
+  padding: 14px 14px 12px;
+  display: block;            /* override grid layout while editing */
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+#tasks li.task.editing .editor-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: editor-open 140ms cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+@keyframes editor-open {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#tasks li.task.editing input,
+#tasks li.task.editing textarea,
+#tasks li.task.editing select {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-family: inherit;
+  outline: none;
+}
+#tasks li.task.editing .ed-name {
+  width: 100%;
+  font-size: 15px;
+  font-weight: 500;
+}
+#tasks li.task.editing .ed-body {
+  width: 100%;
+  font-size: 13px;
+  min-height: 56px;
+  resize: vertical;
+}
+#tasks li.task.editing .editor-meta-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+#tasks li.task.editing .ed-chip {
+  flex: 0 1 auto;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--fg-dim);
+  background: transparent;
+}
+#tasks li.task.editing .ed-chip::placeholder { color: var(--fg-faint); }
+#tasks li.task.editing input.ed-chip { min-width: 140px; }
+#tasks li.task.editing input.ed-chip.ed-url { min-width: 110px; flex: 1 1 140px; }
+#tasks li.task.editing select.ed-chip {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--fg-faint) 50%),
+                    linear-gradient(135deg, var(--fg-faint) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  padding-right: 24px;
+  cursor: pointer;
+}
+#tasks li.task.editing input:focus,
+#tasks li.task.editing textarea:focus,
+#tasks li.task.editing select:focus {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+#tasks li.task.editing .editor-hint {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-faint);
+  text-align: right;
+}
+/* Tag chips inline with the task title — green styling matches quick-add preview. */
+.tag-chip {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 6px;
+  font-size: 11px;
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+  color: color-mix(in oklab, var(--green) 80%, var(--fg-dim));
+  border: none;
+  background: transparent;
+}
+
+.subtitle {
+  display: block;
+  font-size: 12px;
+  color: var(--fg-dim);
+  margin-top: 3px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  /* wrap marks to multiple lines (right-aligned) when the capped meta column
+     is too narrow for them on one row — they stack instead of overflowing. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-size: 12px;
+  color: var(--fg-faint);
+  margin-top: 1px;
+  /* When the pane is crushed to its minimum, the meta track can hit 0 width;
+     clip its content rather than let right-anchored text paint over the title
+     (the old filled chips overlapped the same way, just less legibly). */
+  overflow: hidden;
+}
+/* Metadata is thin ink, not filled pills: color and weight carry the meaning,
+   the row stays quiet. (Premium-pass 2026-07-08 — don't reintroduce chip
+   backgrounds here; the only filled surfaces in a row are selection/hover.) */
+.meta .due { color: var(--fg-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.meta .due.overdue { color: var(--red); font-weight: 500; }
+.meta .due.today   { color: var(--accent); font-weight: 500; }
+.meta .pri { font-size: 11px; letter-spacing: 0.04em; font-weight: 650; font-variant-numeric: tabular-nums; }
+.meta .pri.high   { color: var(--red); }
+.meta .pri.medium { color: var(--orange); }
+.meta .pri.low    { color: var(--yellow); }
+.meta .url-chip {
+  text-decoration: none;
+  color: var(--accent-2);
+  font-size: 11px;
+  font-family: var(--mono);
+  max-width: 220px;
+  min-width: 0;          /* allow the chip to shrink + ellipsize so it can't pin the meta column wide and starve the title */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta .url-chip:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+/* Recurrence + alarm marks — same thin-ink family as due/pri/tag. */
+.meta .recur-chip,
+.meta .alarm-chip {
+  font-size: 11px;
+  color: var(--fg-faint);
+  white-space: nowrap;
+}
+
+/* Auto-detected URLs in task names / notes — visually shortened, click-through. */
+.inline-link {
+  color: var(--accent-2);
+  text-decoration: none;
+  font-family: var(--mono);
+  font-size: 0.92em;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+.inline-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.subtitle .inline-link { font-size: 0.95em; }
+.meta .flag { color: var(--yellow); font-size: 12px; }
+
+.empty {
+  text-align: center;
+  color: var(--fg-faint);
+  padding: 56px 20px;
+  font-size: 13px;
+}
+.empty .empty-mark {
+  display: block;
+  margin: 0 auto 14px;
+  width: 44px;
+  height: 44px;
+  opacity: 0.35;
+  color: var(--fg-dim);
+}
+.empty kbd { color: var(--fg-dim); }
+
+#statusbar {
+  border-top: 1px solid var(--border);
+  padding: 9px 22px;
+  margin: 0 -22px;
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#hint { cursor: pointer; }
+#hint:hover { color: var(--fg-dim); }
+
+kbd {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+}
+
+/* ============================== overlays ============================== */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.overlay.hidden { display: none; }
+.overlay-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 26px 30px;
+  min-width: 440px;
+  max-width: 640px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.overlay-card.narrow { min-width: 380px; max-width: 480px; }
+.overlay-card h2 { margin: 0 0 14px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-dim); font-weight: 500; }
+.overlay-card h3 { margin: 18px 0 8px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-dim); font-weight: 500; }
+.overlay-card table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.overlay-card td { padding: 5px 8px; vertical-align: top; }
+.overlay-card td:first-child { white-space: nowrap; color: var(--fg-dim); width: 200px; }
+.overlay-card ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--fg-dim); }
+.overlay-card ul code { color: var(--fg); font-family: var(--mono); font-size: 12px; }
+.overlay-card label { display: block; font-size: 12px; color: var(--fg-dim); margin-bottom: 8px; }
+.overlay-card input[type=text] {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  color: var(--fg);
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+}
+.overlay-card .hint { font-size: 11px; color: var(--fg-faint); margin: 12px 0 0; font-family: var(--mono); }
+
+/* Quick-capture overlay — Todoist-style modal opened with ⌥⇧T. */
+.overlay-card.qc-card { min-width: 520px; max-width: 640px; }
+.qc-card .qc-title { margin-bottom: 10px; }
+.qc-card #qcName {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  color: var(--fg);
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  outline: none;
+  font-family: inherit;
+  margin-bottom: 8px;
+}
+.qc-card #qcBody {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 40px;
+  margin-bottom: 8px;
+}
+.qc-card #qcBody:focus { border-color: var(--accent); }
+.qc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.qc-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-faint);
+}
+.qc-row #qcDate, .qc-row select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+}
+.qc-row #qcDate { min-width: 220px; flex: 1; }
+.qc-row #qcDate:focus, .qc-row select:focus { border-color: var(--accent); }
+.qc-card .hint code {
+  color: var(--fg-dim);
+  font-family: var(--mono);
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* Report-an-issue overlay — ⌘K "Report a bug / feature request". */
+.overlay-card.rp-card { min-width: 460px; max-width: 560px; }
+.rp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.rp-row select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+  flex: 1;
+}
+.rp-row select:focus { border-color: var(--accent); }
+.rp-card #rpText {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  color: var(--fg);
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 90px;
+  margin-bottom: 10px;
+}
+.rp-preview { font-size: 11px; color: var(--fg-faint); margin-bottom: 4px; }
+.rp-preview summary { cursor: pointer; font-family: var(--mono); user-select: none; }
+.rp-preview summary:hover { color: var(--fg-dim); }
+.rp-preview pre {
+  margin: 8px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rp-card .hint code {
+  color: var(--fg-dim);
+  font-family: var(--mono);
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* Recently-deleted (trash) modal */
+.overlay-card.trash-card { min-width: 460px; max-width: 600px; }
+.trash-list { list-style: none; margin: 10px 0 0; padding: 0; max-height: 50vh; overflow-y: auto; }
+.trash-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.trash-row:last-child { border-bottom: none; }
+.trash-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.trash-name { font-size: 14px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trash-meta { font-size: 11px; color: var(--fg-faint); font-family: var(--mono); }
+.trash-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.trash-actions button {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.trash-actions button:hover { color: var(--fg); border-color: var(--fg-faint); }
+.trash-restore:hover { color: var(--green); border-color: var(--green); }
+.trash-purge:hover { color: var(--red); border-color: var(--red); }
+.trash-actions button:disabled { opacity: 0.5; cursor: default; }
+.trash-empty { list-style: none; padding: 16px 4px; color: var(--fg-faint); font-size: 13px; text-align: center; }
+
+/* Logbook modal — day-grouped completion journal over the history log. */
+.overlay-card.log-card { min-width: 480px; max-width: 620px; }
+.log-card #logbookFilter {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  margin: 2px 0 4px;
+}
+.log-card #logbookFilter:focus { border-color: var(--accent); }
+.log-list { list-style: none; margin: 4px 0 0; padding: 0; max-height: 56vh; overflow-y: auto; }
+.log-day {
+  padding: 12px 2px 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  font-weight: 500;
+}
+.log-day .log-day-count {
+  margin-left: 8px;
+  font-family: var(--mono);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--green);
+}
+.log-row { display: flex; align-items: baseline; gap: 8px; padding: 4px 2px; }
+.log-mark { flex: none; width: 14px; text-align: center; font-size: 11px; color: var(--green); }
+.log-row.deleted .log-mark { color: var(--fg-faint); }
+.log-name { flex: 1; font-size: 13px; color: var(--fg); overflow-wrap: anywhere; }
+.log-row.deleted .log-name { color: var(--fg-faint); text-decoration: line-through; }
+.log-meta { flex: none; font-size: 11px; color: var(--fg-faint); font-variant-numeric: tabular-nums; }
+.log-empty { padding: 16px 2px; color: var(--fg-faint); font-size: 13px; text-align: center; }
+
+/* tok-list chip in quick-add preview — border-and-ink like its siblings */
+.tok.tok-list { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+.tok.tok-list.bad { color: var(--red); border-color: color-mix(in oklab, var(--red) 40%, transparent); }
+
+/* Command palette — gentle, top-aligned, see-through backdrop (no blur). */
+.overlay.palette {
+  background: rgba(0,0,0,0.18);
+  align-items: flex-start;
+  padding-top: 16vh;
+}
+.palette-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  width: 560px;
+  max-width: 90vw;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+}
+.palette-card > input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  padding: 8px 10px 10px;
+  font-size: 16px;
+  outline: none;
+  font-family: inherit;
+  border-bottom: 1px solid var(--border);
+}
+.palette-card > input::placeholder { color: var(--fg-faint); }
+#paletteResults {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  /* ~7 rows visible (each row ≈ 33px); scroll for the rest. */
+  max-height: 240px;
+}
+.palette-item {
+  padding: 8px 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--fg);
+}
+.palette-item.selected { background: var(--bg-sel); }
+.palette-item .palette-hint {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+}
+.palette-card > .hint {
+  font-size: 11px;
+  color: var(--fg-faint);
+  margin: 8px 0 0;
+  font-family: var(--mono);
+  text-align: center;
+}
+.palette-empty { padding: 14px 12px; color: var(--fg-faint); font-size: 13px; text-align: center; }
+
+.hidden { display: none !important; }
+
+/* Zen mode (body.zen, `todo-app:zen:v1`): hides decorative chrome only. A
+   visibility preset, NOT a design fork — nothing else may branch on it. The
+   buddy's own setting is untouched; zen simply hides it while active. */
+body.zen #buddy,
+body.zen #statusbar,
+body.zen #lists li .count,
+body.zen #smartLists li .count,
+body.zen #tags li .count { display: none !important; }
+
+/* Error toast — transient failure channel (the sidebar status line is too
+   easy to miss when an optimistic write silently rolls back). Created
+   lazily by reportError() in app.js. */
+#toast {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  max-width: 380px;
+  z-index: 200;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--red);
+  color: var(--red);
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Sticky startup-failure banner: the toast body stays click-through
+   (pointer-events: none above), only the retry button takes clicks. */
+#toast .toast-retry {
+  pointer-events: auto;
+  margin-left: 10px;
+  padding: 1px 10px 2px;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+#toast .toast-retry:hover { background: color-mix(in srgb, var(--red) 12%, transparent); }
+
+/* unparseable ?date chip in quick-add preview */
+.tok.tok-due.bad { color: var(--red); border-color: color-mix(in oklab, var(--red) 40%, transparent); }
+
+/* Recurring tasks resting until a future occurrence — present but quiet. */
+#tasks li.task.resting,
+.pinned-tasks li.task.resting { opacity: 0.55; }
+#tasks li.task.resting .pri,
+.pinned-tasks li.task.resting .pri { opacity: 0.6; }
+
+/* Snooze mark — quiet italic ink, same family as the other meta marks. */
+.meta .snooze-chip {
+  font-size: 11px;
+  color: var(--fg-faint);
+  white-space: nowrap;
+  font-style: italic;
+}
+
+/* Pinned-pane interactivity: hover + keyboard selection mirror the main pane. */
+.pinned-tasks li.task { transition: background 0.12s ease; border-radius: 7px; cursor: pointer; }
+.pinned-tasks li.task:hover { background: var(--bg-hover); }
+.pinned-tasks li.task.selected { background: var(--bg-sel); }
+/* Keyboard focus ring on the pane that owns j/k right now. */
+.pane.kb-focused {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+}
+
+/* ============================== buddy ============================== */
+/* ASCII desk pet above the sidebar footer. Sprite + bubble are textContent
+   only; hearts are decorative spans that remove themselves. */
+#buddy {
+  position: relative;
+  align-self: flex-start;   /* hug the sprite so the click/pet hitbox is the body, not the full-width strip (#3) */
+  margin: 4px 12px 6px;
+  padding: 2px 6px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#buddy.hidden { display: none; }
+.buddy-stage { position: relative; }
+.buddy-sprite {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.15;
+  margin: 0;
+  min-height: 38px;            /* 3 frame lines — no layout shift between poses */
+  color: var(--fg-dim);
+  white-space: pre;
+  transition: color 0.15s ease;
+}
+#buddy:hover .buddy-sprite { color: var(--fg); }
+.buddy-bubble {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 4px;
+  max-width: 210px;
+  z-index: 5;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px 8px 8px 2px;   /* tail corner points at the buddy */
+  padding: 3px 9px 4px;
+  font-size: 11px;
+  color: var(--fg-dim);
+  box-shadow: 0 2px 10px color-mix(in oklab, var(--bg) 60%, transparent);
+}
+.buddy-bubble.hidden { display: none; }
+.buddy-heart {
+  position: absolute;
+  bottom: 60%;
+  font-size: 10px;
+  /* Vermillion, not the accent: a heart reads as a heart in red, and the
+     accent is terracotta. The "--red is reserved for P1/overdue/danger"
+     rule is about METADATA chrome — this is a one-off decorative glyph that
+     floats away in 1.4s, not a status signal. */
+  color: var(--red);
+  pointer-events: none;
+  animation: buddy-heart-rise 1.4s ease-out forwards;
+}
+@keyframes buddy-heart-rise {
+  from { transform: translateY(0);     opacity: 0.95; }
+  to   { transform: translateY(-26px); opacity: 0; }
+}
+
+/* Shiny buddy — animated rainbow shimmer. Sanctioned exception to the
+   tokens-only rule: a shiny is deliberately outside the palette (that's the
+   point), anchored on --accent/--yellow/--green so it still sits in-theme. */
+.buddy-sprite.shiny {
+  background: linear-gradient(90deg,
+    var(--accent), var(--yellow), var(--green), #7aa7c7, #b48ead, var(--accent));
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: buddy-shimmer 6s linear infinite;
+}
+#buddy:hover .buddy-sprite.shiny { color: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  .buddy-sprite.shiny { animation: none; }
+}
+@keyframes buddy-shimmer { to { background-position: 300% 0; } }
+
+/* Buddy stat card (⌘K "Buddy: card") */
+.bcard { text-align: center; }
+.bcard-sprite {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.15;
+  white-space: pre;
+  margin: 4px auto 10px;
+  display: inline-block;
+  text-align: left;
+  color: var(--fg);
+}
+.bcard h2 { margin: 0 0 2px; }
+.bcard-sub {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--fg-dim);
+  font-family: var(--mono);
+}
+.bcard-stats { display: flex; flex-direction: column; gap: 7px; margin: 0 8px 14px; }
+.bcard-stat { display: flex; align-items: center; gap: 10px; }
+.bcard-label {
+  width: 64px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-faint);
+}
+.bcard-bar {
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--fg-faint) 14%, transparent);
+  overflow: hidden;
+}
+.bcard-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--accent) 75%, var(--bg-card));
+}
+.bcard-num {
+  width: 26px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-align: left;
+}
+
+/* ----- morning briefing (⌘K "today's briefing"; auto-pops once per day) ----- */
+.brf-card { min-width: 480px; max-width: 620px; max-height: 80vh; overflow-y: auto; }
+.brf-card h2 { padding-right: 130px; }   /* clearance for the absolute copy + window buttons */
+.brf-stale { margin: 0 0 10px; font-size: 12px; color: var(--orange); }
+.brf-headline { margin: 0 0 4px; font-size: 14px; line-height: 1.45; color: var(--fg); }
+ol.brf-plan { list-style: none; margin: 0; padding: 0; }
+ol.brf-plan li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; background: var(--bg-card); }
+ol.brf-plan li.linked { cursor: pointer; }
+ol.brf-plan li.linked:hover { background: var(--bg-hover); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+ol.brf-plan li.done .brf-title { text-decoration: line-through; color: var(--fg-faint); }
+.brf-slot { font-family: var(--mono); font-size: 11px; color: var(--accent-2); white-space: nowrap; }
+.brf-title { font-size: 13px; font-weight: 500; color: var(--fg); }
+.brf-why { flex-basis: 100%; font-size: 12px; line-height: 1.4; color: var(--fg-dim); }
+ul.brf-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; color: var(--fg); }
+ul.brf-list li { margin: 3px 0; }
+.brf-who { font-weight: 500; }
+.brf-src { color: var(--fg-faint); font-size: 12px; }
+.brf-scoreboard { margin: 14px 0 0; font-size: 12px; font-style: italic; color: var(--fg-dim); }
+.brf-meta { margin: 10px 0 0; font-size: 11px; color: var(--fg-faint); }
+.brf-check { flex: none; width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid var(--fg-faint); background: transparent; color: var(--green); font-size: 11px; line-height: 1; padding: 0; cursor: pointer; align-self: center; }
+.brf-check:hover { border-color: var(--green); }
+.brf-check:disabled { cursor: default; border-color: var(--green); }
+/* plan-your-day triage — one task at a time, keyboard-only */
+.triage-card { min-width: 440px; max-width: 520px; }
+.triage-sub { margin: 2px 0 14px; font-size: 12px; color: var(--fg-dim); }
+.triage-name { font-size: 17px; font-weight: 500; color: var(--fg); line-height: 1.35; margin-bottom: 6px; }
+.triage-meta { font-size: 12px; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
+.triage-meta.overdue { color: var(--red); }
+.triage-acted { margin-top: 10px; font-size: 12px; color: var(--green); }
+.triage-summary { list-style: none; margin: 6px 0 0; padding: 0; font-size: 13px; line-height: 1.7; color: var(--fg); }
+#triageBody { min-height: 64px; }
+#triageDate {
+  margin-top: 12px;
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: var(--sans);
+}
+#triageDate:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+
+/* settings — habits block */
+#setHabitName {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  padding: 6px 9px;
+  font-size: 12px;
+  font-family: var(--sans);
+  width: 150px;
+}
+#setHabitName:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.set-habit-kinds {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  padding: 6px 9px;
+  font-size: 12px;
+  font-family: var(--sans);
+  width: 160px;
+}
+.set-habit-kinds:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+
+/* dismiss (×): reject a plan row without touching the task — hover-quiet, red on hover */
+.brf-dismiss { flex: none; margin-left: auto; width: 17px; height: 17px; border: 0; border-radius: 50%; background: transparent; color: var(--fg-faint); font-size: 13px; line-height: 1; padding: 0; cursor: pointer; align-self: center; opacity: 0; }
+ol.brf-plan li:hover .brf-dismiss { opacity: 1; }
+.brf-dismiss:hover { color: var(--red); }
+/* dismissed rows: the slot stays, the content empties out */
+ol.brf-plan li.dismissed { background: transparent; border-style: dashed; }
+ol.brf-plan li.dismissed .brf-title,
+ol.brf-plan li.dismissed .brf-why { text-decoration: line-through; color: var(--fg-faint); font-weight: 400; }
+ol.brf-plan li.dismissed .brf-check { border-color: var(--fg-faint); }
+/* fixed rows = calendar blocks: no done-circle, dashed + dimmed so task picks stand out */
+.brf-fixed-mark { flex: none; width: 17px; text-align: center; color: var(--fg-faint); font-size: 11px; align-self: center; }
+ol.brf-plan li.fixed { background: transparent; border-style: dashed; }
+ol.brf-plan li.fixed .brf-title { color: var(--fg-dim); font-weight: 400; }
+/* needs-answer: checkable rows grouped under level labels (labels render only when the level has items) */
+ul.brf-needs { list-style: none; margin: 0; padding: 0; font-size: 13px; line-height: 1.5; color: var(--fg); }
+ul.brf-needs li { display: flex; gap: 8px; align-items: baseline; margin: 4px 0; }
+ul.brf-needs li.done .brf-needs-text { text-decoration: line-through; color: var(--fg-faint); }
+li.brf-lvl { margin: 10px 0 2px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; }
+li.brf-lvl-critical { color: var(--red); }
+li.brf-lvl-high { color: var(--orange); }
+li.brf-lvl-medium { color: var(--fg-dim); }
+/* pop-out briefing window (?briefing=1): the briefing card IS the page */
+html.briefing-only body > :not(#briefingModal) { display: none !important; }
+html.briefing-only #briefingModal { position: static; background: var(--bg); padding: 0; display: block; }
+html.briefing-only #briefingModal.hidden { display: none; }
+html.briefing-only #briefingModal .brf-card { min-width: 0; max-width: none; max-height: none; width: 100%; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
+html.briefing-only #briefingModal .hint { display: none; }
+ol.brf-plan li.done .brf-why { text-decoration: line-through; color: var(--fg-faint); }
+.brf-comment { display: flex; gap: 8px; margin-top: 16px; }
+.brf-comment input { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--fg); padding: 7px 10px; font-size: 13px; font-family: var(--sans); }
+.brf-comment input:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.brf-comment button { background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; color: var(--fg); padding: 7px 12px; font-size: 12px; cursor: pointer; }
+.brf-comment button:hover { border-color: var(--accent); }
+
+/* Briefing + prep copy buttons; the briefing card is selectable text too. */
+.brf-card { position: relative; user-select: text; -webkit-user-select: text; }
+#briefingCopy, #briefingPop, #prepCard .prep-copy {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg-dim);
+  padding: 2px 9px;
+  font-size: 11px;
+  cursor: pointer;
+}
+#briefingCopy:hover, #briefingPop:hover, #prepCard .prep-copy:hover { border-color: var(--accent); color: var(--fg); }
+#briefingCopy { position: absolute; top: 18px; right: 18px; }
+#briefingPop { position: absolute; top: 18px; right: 66px; }
+
+/* Meeting prep on calendar events: marker on the event, click-open card. */
+.cal-block.has-prep, .cal-allday.has-prep { cursor: pointer; position: relative; }
+.cal-block.has-prep::after, .cal-allday.has-prep::after {
+  content: '✦';
+  position: absolute;
+  top: 1px;
+  right: 4px;
+  font-size: 9px;
+  line-height: 1.4;
+  color: var(--accent-2);
+}
+#prepCard {
+  position: fixed;
+  z-index: 401;               /* above #calHover (400) */
+  width: min(420px, calc(100vw - 32px));
+  max-height: 72vh;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  user-select: text;
+  -webkit-user-select: text;
+}
+#prepCard.hidden { display: none; }
+#prepCard .prep-head { display: flex; align-items: baseline; gap: 8px; }
+#prepCard .prep-title { flex: 1; font-size: 13px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+#prepCard .prep-close { background: none; border: none; color: var(--fg-faint); font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px; }
+#prepCard .prep-close:hover { color: var(--fg); }
+#prepCard .prep-sub { font-size: 11.5px; color: var(--fg-dim); margin-top: 2px; }
+#prepCard .prep-brief { font-size: 12.5px; line-height: 1.5; color: var(--fg); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 8px; }
+#prepCard ul.prep-items { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--border); }
+#prepCard .prep-items li { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; font-size: 12.5px; }
+#prepCard .prep-items li.done .prep-item-text { text-decoration: line-through; color: var(--fg-faint); }
+#prepCard .prep-item-text { flex: 1; overflow-wrap: anywhere; }
+#prepCard .prep-dismiss { background: none; border: none; color: var(--fg-faint); font-size: 13px; line-height: 1; cursor: pointer; padding: 0 2px; }
+#prepCard .prep-dismiss:hover { color: var(--red); }
+
+/* ============================== settings ============================== */
+/* Settings pane (⌘, or ⌘K "Settings…"). One scrollable card, no tabs — if a
+   setting doesn't fit on one screen it probably shouldn't exist. Rows follow
+   the trash-modal rhythm: label + caption left, control right, hairline rule. */
+.overlay-card.settings-card { min-width: 560px; max-width: 620px; }
+.set-lede { margin: -4px 0 4px; font-size: 12.5px; line-height: 1.55; color: var(--fg-dim); }
+.set-lede kbd { font-size: 10px; }
+.settings-card h3 { margin-top: 22px; }
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--border);
+}
+.set-row:last-of-type { border-bottom: none; }
+.set-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.set-label { font-size: 13.5px; color: var(--fg); }
+.set-sub { font-size: 11.5px; line-height: 1.45; color: var(--fg-faint); }
+.set-sub kbd { font-size: 10px; }
+.set-inline { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* On/off switch — accent when on, calm border when off. */
+.switch {
+  flex-shrink: 0;
+  width: 36px;
+  height: 21px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--fg-faint);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.switch[aria-checked="true"] {
+  background: color-mix(in oklab, var(--accent) 75%, var(--bg));
+  border-color: color-mix(in oklab, var(--accent) 75%, var(--bg));
+}
+.switch[aria-checked="true"]::after { transform: translateX(15px); background: var(--bg-card); }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Segmented control (theme). */
+.seg { display: flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; flex-shrink: 0; }
+.seg button {
+  background: var(--bg);
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.seg button:last-child { border-right: none; }
+.seg button:hover { color: var(--fg); background: var(--bg-hover); }
+.seg button.on {
+  background: color-mix(in oklab, var(--accent) 16%, var(--bg));
+  color: var(--accent);
+}
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Accent picker: live swatch input + current hex + reset. */
+#setAccent {
+  width: 34px;
+  height: 24px;
+  padding: 1px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+}
+#setAccentHex { font-family: var(--mono); font-size: 11px; color: var(--fg-dim); }
+
+/* Small inline action ("reset", "stats card", "restore"). */
+.set-mini {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.set-mini:hover { color: var(--fg); border-color: var(--fg-faint); }
+
+/* Selects + time input match the quick-capture controls. */
+.settings-card select, .settings-card input[type=time] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.settings-card select:focus, .settings-card input[type=time]:focus { border-color: var(--accent); }
+
+.set-kbd { display: flex; gap: 3px; flex-shrink: 0; }
+
+/* Hidden-sidebar-views list (filled by JS). */
+.set-none { padding: 8px 2px; font-size: 12px; color: var(--fg-faint); }
+
+.set-prose { padding: 4px 2px 0; }
+.set-prose p { margin: 0 0 8px; font-size: 12px; line-height: 1.55; color: var(--fg-dim); }
+.set-prose strong { color: var(--fg); font-weight: 500; }
+.set-prose code { font-family: var(--mono); font-size: 11px; color: var(--fg); background: var(--bg); padding: 1px 5px; border-radius: 3px; }
+
+.set-foot { display: flex; gap: 8px; margin-top: 16px; }
+.set-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.set-btn:hover { color: var(--fg); border-color: var(--fg-faint); }

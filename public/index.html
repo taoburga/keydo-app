@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>todo</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script>
+    /* Apply the persisted theme + accent BEFORE first paint so a forced
+       light/dark choice or a custom accent doesn't flash the default on load.
+       'system' leaves the attribute unset and the CSS media query decides.
+       Placed AFTER the stylesheet link on purpose: the injected accent style
+       must come later in document order to win the cascade. */
+    try {
+      /* Pop-out briefing window (?briefing=1): flag the root pre-paint so the
+         main UI never flashes before app.js pins the briefing. */
+      if (location.search.indexOf('briefing=1') !== -1) document.documentElement.className += ' briefing-only';
+      var t = localStorage.getItem('todo-app:theme:v1');
+      if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+      /* Custom accent (Settings → accent color). KEEP IN SYNC with the
+         _accentCss builder in app.js — same rules, same element id. */
+      var a = localStorage.getItem('todo-app:accent:v1');
+      if (a && /^#[0-9a-fA-F]{6}$/.test(a)) {
+        var st = document.createElement('style');
+        st.id = 'customAccent';
+        st.textContent =
+          ':root, :root[data-theme="light"] { --accent: ' + a + '; }\n' +
+          ':root { --accent-2: color-mix(in oklab, ' + a + ' 72%, white); }\n' +
+          ':root[data-theme="light"] { --accent-2: color-mix(in oklab, ' + a + ' 78%, black); }\n' +
+          '@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --accent: ' + a + '; --accent-2: color-mix(in oklab, ' + a + ' 78%, black); } }';
+        document.head.appendChild(st);
+      }
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="sb-head">
+        <span class="sb-title">smart lists</span>
+      </div>
+      <ol id="smartLists"></ol>
+
+      <div class="sb-head">
+        <span class="sb-title">lists</span>
+        <button id="newList" title="New list (shift+L)">＋</button>
+      </div>
+      <ol id="lists"></ol>
+
+      <div class="sb-head">
+        <span class="sb-title">tags</span>
+      </div>
+      <ol id="tags"></ol>
+
+      <div class="sb-head" id="habitsHead" hidden>
+        <span class="sb-title">habits</span>
+      </div>
+      <ol id="habits"></ol>
+      <div id="buddy" class="hidden" title="click to pet" aria-label="buddy — click to pet"></div>
+      <div class="sb-foot">
+        <span id="status"></span>
+      </div>
+    </aside>
+
+    <main id="main">
+      <header id="topbar">
+        <div id="quickAddWrap">
+          <input
+            id="quickAdd"
+            type="text"
+            placeholder="press n or / to add a task…   ⌥⇧T quick-capture"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <div id="quickAddPreview" class="hidden"></div>
+          <div id="qaComplete" class="hidden"></div>
+        </div>
+        <input
+          id="searchBar"
+          type="text"
+          placeholder="search… (⌘F · due:today #tag list:name)"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </header>
+
+      <section id="taskPaneArea">
+        <section id="taskPane" class="pane primary">
+          <h1 id="listHeader">—</h1>
+          <ul id="tasks"></ul>
+          <div id="emptyMsg" class="empty hidden">no tasks. press <kbd>n</kbd> to add one.</div>
+        </section>
+        <section id="pinnedPanes"></section>
+        <aside id="calendarPane" class="hidden" aria-label="calendar">
+          <div class="cal-header">
+            <div class="cal-title-row">
+              <h1 id="calTitle"></h1>
+              <button id="calClose" type="button" title="close calendar" aria-label="close calendar">×</button>
+            </div>
+            <div class="cal-nav">
+              <button id="calPrev" type="button" title="previous day" aria-label="previous day">‹</button>
+              <button id="calToday" type="button">today</button>
+              <button id="calNext" type="button" title="next day" aria-label="next day">›</button>
+            </div>
+          </div>
+          <div id="calAllDay"></div>
+          <div id="calBody"></div>
+        </aside>
+      </section>
+
+      <footer id="statusbar">
+        <!-- Curated essentials only — the full list lives in ? help. Kept short so it
+             never clips: ? sits early so it survives ellipsis on narrow windows. -->
+        <span id="hint" title="double-click for all shortcuts"><kbd>n</kbd> add · <kbd>⌘K</kbd> commands · <kbd>⌘F</kbd> search · <kbd>?</kbd> help · <kbd>⏎</kbd> edit · <kbd>e</kbd> done · <kbd>p</kbd> pri · <kbd>z</kbd> snooze · <kbd>dd</kbd> del</span>
+      </footer>
+    </main>
+  </div>
+
+  <div id="helpOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="overlay-card">
+      <h2 id="helpTitle">keyboard</h2>
+      <table>
+        <tr><td><kbd>n</kbd> / <kbd>/</kbd></td><td>focus quick-add</td></tr>
+        <tr><td><kbd>Esc</kbd> / <kbd>`</kbd></td><td>blur input · close modals · cancel an edit (<kbd>`</kbd> works everywhere Esc does)</td></tr>
+        <tr><td><kbd>j</kbd> / <kbd>↓</kbd></td><td>next task</td></tr>
+        <tr><td><kbd>k</kbd> / <kbd>↑</kbd></td><td>prev task</td></tr>
+        <tr><td><kbd>Tab</kbd></td><td>indent (subtask of task above)</td></tr>
+        <tr><td><kbd>⇧</kbd>+<kbd>Tab</kbd></td><td>outdent (one level up)</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>⏎</kbd></td><td>add task below (sibling)</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>⌥</kbd>+<kbd>⏎</kbd></td><td>add sub-task under selected</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd></td><td>move task within siblings (subtree moves with parent)</td></tr>
+        <tr><td>drag a task</td><td>reorder among siblings (drop on a sibling); drop on a pinned pane / sidebar list to move to that list</td></tr>
+        <tr><td><kbd>e</kbd> / <kbd>Space</kbd></td><td>toggle complete (Superhuman-style)</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td>open editor; ⏎ or click-out saves, esc / ` cancels</td></tr>
+        <tr><td><kbd>p</kbd></td><td>cycle priority (none→hi→med→lo)</td></tr>
+        <tr><td><kbd>b</kbd></td><td>bump due date by +1 day (no due → tomorrow)</td></tr>
+        <tr><td><kbd>w</kbd></td><td>due → the weekend (Saturday)</td></tr>
+        <tr><td><kbd>⇧B</kbd></td><td>due back −1 day · more presets in ⌘K (“Due: …”)</td></tr>
+        <tr><td><kbd>z</kbd></td><td>snooze until a day (rests dimmed at the bottom, out of Today/Important; z again to change or wake). Local-only — iPhone still shows the task normally</td></tr>
+        <tr><td><kbd>f</kbd></td><td>toggle flag (★ via #flag tag)</td></tr>
+        <tr><td><kbd>s</kbd></td><td>cycle sort mode (due / priority / created / manual)</td></tr>
+        <tr><td><kbd>⇧</kbd>+<kbd>S</kbd></td><td>assign task to a section (local-only)</td></tr>
+        <tr><td><kbd>d</kbd> <kbd>d</kbd></td><td>delete task (may conflict with Chrome extensions; see ⌘⌫ below)</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>⌫</kbd></td><td>delete task (alternate)</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>Z</kbd></td><td>undo last action (delete · complete · due bump)</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd></td><td>redo last undone action</td></tr>
+        <tr><td><kbd>1</kbd>–<kbd>9</kbd></td><td>switch to list N</td></tr>
+        <tr><td><kbd>shift</kbd>+<kbd>L</kbd></td><td>new list</td></tr>
+        <tr><td><kbd>c</kbd></td><td>toggle show completed (per view)</td></tr>
+        <tr><td><kbd>r</kbd> or <kbd>⌘</kbd>+<kbd>R</kbd></td><td>refresh from Reminders (+ calendar pane if open)</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>F</kbd></td><td>focus search bar</td></tr>
+        <tr><td><kbd>?</kbd> or <kbd>⌘</kbd>+<kbd>/</kbd></td><td>this help</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>K</kbd></td><td>command palette — also theme (dark/light/system), completion-sound, and buddy toggles, which show their current setting</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>,</kbd></td><td>settings — theme, accent color, sound, buddy, calendar pane, default sort &amp; due time, hidden sidebar views</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>K</kbd> "reschedule overdue"</td><td>move every overdue task's due date to today (palette-only)</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>K</kbd> "report a bug" / "request a feature"</td><td>jot an issue or idea — saves a content-free diagnostic snapshot to <code>reports/</code> and copies it for Claude</td></tr>
+        <tr><td><kbd>⌘</kbd>+<kbd>K</kbd> "export reports"</td><td>copies every open bug report and feature request as one structured packet for email / Claude</td></tr>
+        <tr><td>buddy (bottom-left)</td><td>click to pet · reacts to completions, snoozes, clearing Today · sleeps at night · <kbd>⌘K</kbd> "Buddy" for toggle, stats card, new egg</td></tr>
+        <tr><td><kbd>⌥</kbd>+<kbd>⇧</kbd>+<kbd>T</kbd></td><td>quick capture — works <em>system-wide</em>: in-app it opens the full overlay; from any other app, a floating panel (same syntax)</td></tr>
+        <tr><td>click parent's <kbd>▾</kbd></td><td>collapse / expand subtasks (Apple-Reminders-style)</td></tr>
+        <tr><td>click a task</td><td>select + show inline quick-actions (date / priority / list)</td></tr>
+        <tr><td>double-click a task</td><td>open the full editor</td></tr>
+        <tr><td>click the active list again</td><td>close it (promotes a pinned pane, or shows nothing)</td></tr>
+        <tr><td>pinned panes</td><td>click a task = quick-action strip in place · double-click = jump to that view (the old view takes this pane's slot)</td></tr>
+        <tr><td><kbd>←</kbd>/<kbd>→</kbd></td><td>move keyboard focus between panes — j/k, e, p, b, z, f, dd, ⏎ then act in the focused pane; esc returns to the main pane</td></tr>
+        <tr><td>drag onto Today / Important / Flagged</td><td>sets due today · due today + P1 · flag — works on the sidebar row, a pinned pane, or the main pane showing that view. Fast way to build a day plan</td></tr>
+        <tr><td>recurring tasks</td><td>rest dimmed at the bottom until their next due day; priority kicks in on the day</td></tr>
+      </table>
+      <h3>quick-add syntax</h3>
+      <ul>
+        <li><code>!high</code> · <code>!mid</code> · <code>!low</code> · <code>!!!</code> = high · <code>!!</code> = med · <code>!</code> = low — priority (a spaced-out <code>!</code> only; <code>done!</code> stays punctuation)</li>
+        <li><code>tomorrow</code> · <code>friday</code> · <code>this weekend</code> · <code>next week</code> · <code>may 3</code> · <code>in a week</code> · <code>end of month</code> · <code>2026-05-15</code> — due date, typed anywhere. Add a time: <code>friday 1pm</code> · <code>tomorrow morning</code> · <code>tonight</code></li>
+        <li>prefix with <code>?</code> to force a date the bare words skip: <code>?sat</code> (short day names) · <code>?27th</code> · <code>?3 may</code> · <code>?mid may</code> · <code>?5/15</code> · <code>?eod</code> · <code>?eow</code></li>
+        <li><code>ls:&lt;name&gt;</code> — send to a different list (e.g. <code>ls:todos</code>, <code>ls:onhold</code>); fuzzy-matched, falls back to current list if no match</li>
+        <li><code>#tag</code> — auto-aggregates in sidebar; <code>#flag</code> reserved for ★ flag</li>
+      </ul>
+      <p class="hint">esc to close</p>
+    </div>
+  </div>
+
+  <div id="prompt" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="promptLabel">
+    <div class="overlay-card narrow">
+      <label id="promptLabel" for="promptInput"></label>
+      <input id="promptInput" type="text" autocomplete="off" />
+      <p class="hint">enter to confirm · esc to cancel</p>
+    </div>
+  </div>
+
+  <div id="quickCapture" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="qcTitle">
+    <div class="overlay-card narrow qc-card">
+      <h2 id="qcTitle" class="qc-title">quick add</h2>
+      <input id="qcName" type="text" placeholder="task name (e.g. 'finish brief !high ?friday at 3pm ls:todos')" autocomplete="off" spellcheck="false" />
+      <textarea id="qcBody" placeholder="notes (optional)" rows="2"></textarea>
+      <div class="qc-row">
+        <span class="qc-label">date</span>
+        <input id="qcDate" type="text" placeholder="today · friday 9am · may 3 · in 3 days" />
+      </div>
+      <div class="qc-row">
+        <span class="qc-label">priority</span>
+        <select id="qcPri">
+          <option value="none">none</option>
+          <option value="high">P1 high</option>
+          <option value="medium">P2 medium</option>
+          <option value="low">P3 low</option>
+        </select>
+        <span class="qc-label">alert</span>
+        <select id="qcAlert">
+          <option value="none">none</option>
+          <option value="0">at due</option>
+          <option value="-300">5m before</option>
+          <option value="-1800">30m before</option>
+          <option value="-3600">1h before</option>
+          <option value="-86400">1d before</option>
+        </select>
+        <span class="qc-label">list</span>
+        <select id="qcList"></select>
+      </div>
+      <p class="hint">tab cycles · ⌘⏎ create · esc / ` cancel · supports <code>!high</code> <code>?date</code> <code>ls:&lt;list&gt;</code> <code>#tag</code> in the title</p>
+    </div>
+  </div>
+
+  <div id="reportModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+    <div class="overlay-card narrow rp-card">
+      <h2 id="reportTitle">report an issue</h2>
+      <div class="rp-row">
+        <span class="qc-label">type</span>
+        <select id="rpType">
+          <option value="bug">bug — something’s broken</option>
+          <option value="feature">feature request / idea</option>
+        </select>
+      </div>
+      <textarea id="rpText" rows="5" placeholder="what happened? what were you doing, and what did you expect instead?"></textarea>
+      <details id="rpPreviewWrap" class="rp-preview">
+        <summary>what gets attached — counts &amp; settings only, never task text</summary>
+        <pre id="rpPreview"></pre>
+      </details>
+      <p class="hint">⌘⏎ save · esc cancel · saved to <code>reports/</code> &amp; copied for Claude</p>
+    </div>
+  </div>
+
+  <div id="trashModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="trashTitle">
+    <div class="overlay-card trash-card">
+      <h2 id="trashTitle">recently deleted</h2>
+      <p class="hint">deleted tasks are kept here for 7 days. restore one, or remove it for good.</p>
+      <ul id="trashList" class="trash-list"></ul>
+      <p class="hint">esc close</p>
+    </div>
+  </div>
+
+  <div id="logbookModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="logbookTitle">
+    <div class="overlay-card log-card">
+      <h2 id="logbookTitle">logbook</h2>
+      <p class="hint">what got done, day by day — back as far as Reminders keeps your completed tasks. deletions show struck through.</p>
+      <input id="logbookFilter" type="text" placeholder="filter — task or list name…" autocomplete="off" spellcheck="false" />
+      <ul id="logbookList" class="log-list"></ul>
+      <p class="hint">esc close</p>
+    </div>
+  </div>
+
+  <div id="briefingModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="briefingTitle">
+    <div class="overlay-card brf-card">
+      <h2 id="briefingTitle">today’s briefing</h2>
+      <div id="briefingBody"></div>
+      <p class="hint">esc close · reopen anytime with ⌘K “today’s briefing”</p>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="overlay-card narrow confirm-card">
+      <h2 id="confirmTitle"></h2>
+      <p id="confirmBody"></p>
+      <div class="confirm-actions">
+        <button id="confirmCancel" type="button">cancel</button>
+        <button id="confirmOk" type="button" class="danger"></button>
+      </div>
+      <p class="hint">esc cancel</p>
+    </div>
+  </div>
+
+  <div id="habitHistoryModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="habitHistoryTitle">
+    <div class="overlay-card narrow hh-card">
+      <h2 id="habitHistoryTitle">habits — past weeks</h2>
+      <div id="habitHistoryBody"></div>
+      <p class="hint">esc close · click any past dot to check/uncheck it</p>
+    </div>
+  </div>
+
+  <div id="triageModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="triageTitle">
+    <div class="overlay-card narrow triage-card">
+      <h2 id="triageTitle">plan your day</h2>
+      <p id="triageSub" class="triage-sub"></p>
+      <div id="triageBody"></div>
+      <p class="hint" id="triageHint"></p>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="overlay-card settings-card">
+      <h2 id="settingsTitle">settings</h2>
+      <p class="set-lede">the essentials live here. every one of these — and more — is also a <kbd>⌘K</kbd> command, reachable from anywhere in the app.</p>
+
+      <h3>appearance</h3>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">theme</span>
+          <span class="set-sub">system follows macOS light / dark</span>
+        </div>
+        <div class="seg" id="setTheme" role="radiogroup" aria-label="theme">
+          <button type="button" data-value="system">system</button>
+          <button type="button" data-value="dark">dark</button>
+          <button type="button" data-value="light">light</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">accent color</span>
+          <span class="set-sub">highlights, buttons, the selection stripe</span>
+        </div>
+        <div class="set-inline">
+          <code id="setAccentHex"></code>
+          <input type="color" id="setAccent" aria-label="pick accent color" />
+          <button type="button" id="setAccentReset" class="set-mini">reset</button>
+        </div>
+      </div>
+
+      <h3>behavior</h3>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">completion sound</span>
+          <span class="set-sub">a quiet two-note tick when a task is done</span>
+        </div>
+        <button type="button" class="switch" id="setSound" role="switch" aria-checked="false" aria-label="completion sound"></button>
+      </div>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">zen mode</span>
+          <span class="set-sub">hides the decorative chrome: buddy, hint bar, sidebar counts</span>
+        </div>
+        <button type="button" class="switch" id="setZen" role="switch" aria-checked="false" aria-label="zen mode"></button>
+      </div>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">buddy</span>
+          <span class="set-sub">the desk pet in the sidebar — pet it, it reacts to your day</span>
+        </div>
+        <div class="set-inline">
+          <button type="button" id="setBuddyCard" class="set-mini">stats card</button>
+          <button type="button" class="switch" id="setBuddy" role="switch" aria-checked="false" aria-label="buddy"></button>
+        </div>
+      </div>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">calendar pane</span>
+          <span class="set-sub">read-only day timeline from macOS Calendar</span>
+        </div>
+        <button type="button" class="switch" id="setCalendar" role="switch" aria-checked="false" aria-label="calendar pane"></button>
+      </div>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">morning briefing pop-up</span>
+          <span class="set-sub">auto-opens once on the briefing’s day; ⌘K “today’s briefing” always works</span>
+        </div>
+        <button type="button" class="switch" id="setBriefing" role="switch" aria-checked="false" aria-label="morning briefing pop-up"></button>
+      </div>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">default list sort</span>
+          <span class="set-sub">for lists without their own order — press <kbd>s</kbd> in a list to override</span>
+        </div>
+        <select id="setSort" aria-label="default list sort">
+          <option value="priority">priority</option>
+          <option value="due">due date</option>
+          <option value="created">newest first</option>
+          <option value="manual">manual</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">default due time</span>
+          <span class="set-sub">when a date has no time — “friday”, “may 3”. today &amp; tonight keep their own</span>
+        </div>
+        <input type="time" id="setDueTime" aria-label="default due time" />
+      </div>
+
+      <h3>quick capture</h3>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">global hotkey</span>
+          <span class="set-sub">system-wide — in-app it opens the capture overlay, elsewhere a floating panel</span>
+        </div>
+        <span class="set-kbd"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>T</kbd></span>
+      </div>
+
+      <h3>habits</h3>
+      <div class="set-prose">
+        <p>weekly frequency goals, not tasks. check a day by clicking its dot in the sidebar; past weeks are editable in the history view (⌘K “habit history”).</p>
+      </div>
+      <div id="setHabits"></div>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">sync to iPhone</span>
+          <span class="set-sub">keeps a “Habit tracker” list in Apple Reminders — check it off on your phone (or via Siri) and it logs here, then resets</span>
+        </div>
+        <button type="button" class="switch" id="setHabitSync" role="switch" aria-checked="false" aria-label="sync habits to iPhone"></button>
+      </div>
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-label">add a habit</span>
+        </div>
+        <div class="set-inline">
+          <input type="text" id="setHabitName" placeholder="name…" maxlength="60" aria-label="new habit name" />
+          <select id="setHabitTarget" aria-label="times per week">
+            <option value="1">1×/wk</option>
+            <option value="2">2×/wk</option>
+            <option value="3">3×/wk</option>
+            <option value="4" selected>4×/wk</option>
+            <option value="5">5×/wk</option>
+            <option value="6">6×/wk</option>
+            <option value="7">7×/wk</option>
+          </select>
+          <button type="button" id="setHabitAdd" class="set-mini">add</button>
+        </div>
+      </div>
+
+      <h3>sidebar</h3>
+      <div id="setHiddenViews"></div>
+
+      <h3>data &amp; privacy</h3>
+      <div class="set-prose">
+        <p>tasks live in <strong>Apple Reminders</strong> (synced by iCloud) — this app is a front-end. it has no servers, no accounts and no telemetry: nothing is sent anywhere on its behalf, except fetching the page title of a link you save to your reading list.</p>
+        <p>app data (trash, history, briefings) sits in <code>~/Library/Application&nbsp;Support/todo-app</code>. deleted tasks are recoverable for 7 days.</p>
+        <p>Claude connects through a local MCP server: every change it makes is written to an audit log, and its deletes land in the same trash.</p>
+      </div>
+
+      <div class="set-foot">
+        <button type="button" id="setOpenTrash" class="set-btn">recently deleted…</button>
+        <button type="button" id="setTutorial" class="set-btn">replay the tutorial…</button>
+      </div>
+      <p class="hint">esc close · ⌘, opens settings anytime</p>
+    </div>
+  </div>
+
+  <div id="buddyCard" class="overlay hidden" role="dialog" aria-modal="true" aria-label="buddy card"></div>
+
+  <div id="palette" class="overlay palette hidden" role="dialog" aria-modal="true">
+    <div class="palette-card">
+      <input id="paletteInput" type="text" placeholder="type a command — delete, sort, help…" autocomplete="off" spellcheck="false" />
+      <ul id="paletteResults"></ul>
+      <p class="hint">↑↓ navigate · ⏎ run · esc close</p>
+    </div>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+# Compiled Swift binary — auto-rebuilt by start.sh / build.sh
+bin/
+
+# Claude Code session data (worktrees, local settings) — never commit
+.claude/
+
+# OS noise
+.DS_Store
+
+# Editor noise
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+/tmp/
+
+# Issue reports (⌘K → "Report a bug" / "Request a feature"). Local-only logs with
+# a content-free diagnostic snapshot. The committed README documents the format;
+# the actual reports stay out of git (and, later, off any public/beta repo).
+/reports/*
+!/reports/README.md
+
+# Node dependencies (installed via `npm install`; package-lock.json is committed)
+node_modules/
+
+# Maintainer-local working notes and trackers (assistant instructions, build
+# tracker, review notes). Keep these out of the repo.
+/CLAUDE.md
+/AGENTS.md
+session-logs/
+/todo-list.md
+/todo-tasks.md
+docs/review-*.md
+docs/mouse-interaction-v1.md
+docs/BEFORE-PUBLISHING.md
+
+# Local-only reference art that is not ours to redistribute. The sprites in
+# public/buddy.js are our own (docs/buddy-art/ours-v1.md is the committed archive).
+docs/buddy-art/anthropic.md
+
+# Local convenience symlink to the built bundle (shell/build/Todo.app).
+# Tracked, it was a DANGLING symlink in every fresh clone — the target is
+# gitignored until you run shell/build.sh. Create it locally if you want it.
+/Todo.app
